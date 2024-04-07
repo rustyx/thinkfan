@@ -139,6 +139,7 @@ endif()
 
 if(SYSTEMD_FOUND)
 	target_compile_definitions(thinkfan PRIVATE -DHAVE_SYSTEMD)
+	target_link_libraries(thinkfan PUBLIC systemd)
 endif()
 
 if(DISABLE_BUGGER)

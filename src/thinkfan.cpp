@@ -43,7 +43,9 @@
 #include "sensors.h"
 #include "fans.h"
 #include "temperature_state.h"
-
+#ifdef HAVE_SYSTEMD
+#include <systemd/sd-daemon.h>
+#endif
 
 namespace thinkfan {
 
@@ -169,6 +171,13 @@ void sig_handler(int signum) {
 
 void run(const Config &config)
 {
+#ifdef HAVE_SYSTEMD
+	setenv("WATCHDOG_PID", std::to_string(getpid()).c_str(), 1);
+	bool wdog = sd_watchdog_enabled(0, nullptr) > 0;
+	if (wdog) {
+		log(TF_NFY) << "systemd watchdog enabled" << flush;
+	}
+#endif
 	tmp_sleeptime = sleeptime;
 
 	for (const unique_ptr<SensorDriver> &sensor : config.sensors())
@@ -201,6 +210,11 @@ void run(const Config &config)
 			log(TF_NFY) << temp_state << " -> " << config.fan_configs() << flush;
 
 		did_something = false;
+#ifdef HAVE_SYSTEMD
+		if (wdog) {
+			sd_notify(0, "WATCHDOG=1");
+		}
+#endif
 	}
 }
 
