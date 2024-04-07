@@ -67,6 +67,7 @@ vector<std::string> config_files { DEFAULT_CONFIG };
 #endif
 
 std::atomic<int> interrupted(0);
+std::atomic<int> sleep_intr(0);
 
 #ifdef USE_ATASMART
 /** Do Not Disturb disk, i.e. don't get temperature from a sleeping disk */
@@ -128,8 +129,9 @@ void sleep(thinkfan::seconds duration) {
 
 	std::unique_lock<std::mutex> sleep_locked(sleep_mutex);
 	sleep_cond.wait_until(sleep_locked, until, [] () {
-		return interrupted != 0;
+		return interrupted != 0 || sleep_intr;
 	} );
+	sleep_intr = 0;
 }
 
 
@@ -150,12 +152,15 @@ void sig_handler(int signum) {
 		throw Bug("Segmentation fault.");
 #endif
 	case SIGUSR2:
+		tolerate_errors = 0;
 		interrupted = signum;
 		sleep_cond.notify_all();
 		log(TF_NFY) << "Received SIGUSR2: Re-initializing fan control." << flush;
 		break;
 	case SIGPWR:
 		tolerate_errors = 4;
+		sleep_intr = 1;
+		sleep_cond.notify_all();
 		log(TF_NFY) << "Going to sleep: Will allow sensor read errors for the next "
 			<< std::to_string(tolerate_errors) << " loops." << flush;
 	}
@@ -184,8 +189,10 @@ void run(const Config &config)
 		for (const unique_ptr<SensorDriver> &sensor : config.sensors())
 			sensor->read_temps();
 
-		if (unlikely(tolerate_errors) > 0)
+		if (unlikely(tolerate_errors) > 0) {
+			temp_state.reset();
 			tolerate_errors--;
+		}
 
 		for (auto &fan_config : config.fan_configs())
 			did_something |= fan_config->set_fanspeed(temp_state);

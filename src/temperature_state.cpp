@@ -116,6 +116,12 @@ const vector<float> & TemperatureState::biases() const
 void TemperatureState::reset_refd_count()
 { refd_temps_ = 0; }
 
+void TemperatureState::reset()
+{
+	for (auto &t : biased_temps_) {
+		t = 0;
+	}
+}
 
 TemperatureState::Ref TemperatureState::ref(unsigned int num_temps)
 {

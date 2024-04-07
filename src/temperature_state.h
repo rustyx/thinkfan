@@ -62,6 +62,7 @@ public:
 	Ref ref(unsigned int num_temps);
 
 	void reset_refd_count();
+	void reset();
 
 private:
 	vector<int> temps_;
